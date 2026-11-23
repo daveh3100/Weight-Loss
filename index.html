@@ -149,7 +149,7 @@
     grid-template-columns: minmax(220px, 30%) 1fr;
     gap: 12px;
   }
-  .side { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; }
+  .side { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: hidden; }
   .status {
     border-radius: 14px; padding: 10px 12px;
     font-weight: 700; font-size: 0.95rem;
@@ -160,11 +160,11 @@
   .status.warn { border-left-color: var(--warn); }
   .status.bad  { border-left-color: var(--bad); }
   .status small { display: block; font-weight: 500; color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
-  .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .kpi { background: var(--panel); border-radius: 12px; padding: 9px 10px; }
-  .kpi .k-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-  .kpi .k-val { font-size: 1.25rem; font-weight: 800; margin-top: 2px; white-space: nowrap; }
-  .kpi .k-sub { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+  .kpis { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(0, 1fr); gap: 8px; }
+  .kpi { background: var(--panel); border-radius: 12px; padding: 6px 10px; display: flex; flex-direction: column; justify-content: center; overflow: hidden; min-height: 0; }
+  .kpi .k-label { font-size: clamp(0.58rem, 1.7vh, 0.72rem); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+  .kpi .k-val { font-size: clamp(0.95rem, 3.6vh, 1.45rem); font-weight: 800; margin-top: 1px; white-space: nowrap; line-height: 1.15; }
+  .kpi .k-sub { font-size: clamp(0.58rem, 1.7vh, 0.74rem); color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .main { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-radius: 16px; padding: 10px 12px 8px; }
   .chart-tools { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
@@ -192,8 +192,15 @@
   .tip b { font-size: 1rem; }
   .chart-empty {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-    color: var(--muted); text-align: center; padding: 20px;
+    padding: 20px; z-index: 2;
   }
+  .chart-empty .ce-card {
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px 22px; text-align: center; max-width: 340px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  .chart-empty .ce-card b { display: block; font-size: 1.1rem; margin-bottom: 4px; }
+  .chart-empty .ce-card p { color: var(--muted); font-size: 0.92rem; margin-bottom: 12px; }
 
   .rotate {
     display: none;
@@ -213,13 +220,12 @@
     /* If user chooses to view in portrait, stack layout */
     body.force-dash .dash { grid-template-columns: 1fr; grid-template-rows: auto 1fr; overflow-y: auto; }
     body.force-dash .side { overflow: visible; }
-    body.force-dash .kpis { grid-template-columns: repeat(2, 1fr); }
+    body.force-dash .kpis { grid-template-columns: repeat(2, 1fr); grid-auto-rows: auto; }
+    body.force-dash .kpi { padding: 9px 10px; }
     body.force-dash .main { min-height: 340px; }
   }
   @media (orientation: landscape) and (max-height: 500px) {
     :root { --tab-h: 48px; }
-    .kpi .k-val { font-size: 1.05rem; }
-    .kpi { padding: 7px 9px; }
     .status { padding: 8px 10px; font-size: 0.88rem; }
     h1 { font-size: 1.2rem; margin: 2px 0 8px; }
   }
@@ -375,7 +381,13 @@
       <div class="chart-wrap" id="chartWrap">
         <svg id="chart"></svg>
         <div class="tip" id="tip"></div>
-        <div class="chart-empty" id="chartEmpty" style="display:none">Add a few weights on the Log screen to see your chart.</div>
+        <div class="chart-empty" id="chartEmpty" style="display:none">
+          <div class="ce-card">
+            <b>No weights logged yet</b>
+            <p>Your chart fills in as you add entries.</p>
+            <button class="btn small" id="goLog">✏️ Log my weight</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -773,10 +785,10 @@
     tiles.push(kpi('To Go', r.remaining != null ? (r.remaining > 0 ? f1(r.remaining) : '0') : '—', r.goalW != null ? `goal ${f1(r.goalW)} ${U}` : 'no goal set'));
     tiles.push(kpi('Complete', r.progress != null ? `${Math.max(0, Math.round(r.progress * 100))}%` : '—', ''));
     tiles.push(kpi('Days Left', r.daysLeft != null ? (r.daysLeft >= 0 ? r.daysLeft : 'Past') : '—', r.goalD ? nice(r.goalD) : 'no goal date'));
-    tiles.push(kpi('Needed / Wk', r.neededPerWeek != null ? f1(r.neededPerWeek) : '—', `${U} per week to hit goal`));
+    tiles.push(kpi('Needed / Wk', r.neededPerWeek != null ? f1(r.neededPerWeek) : '—', `${U}/wk to hit goal`));
     if (r.ratePerWeek != null) {
       const cls = r.ratePerWeek < 0 ? 'down' : r.ratePerWeek > 0 ? 'up' : '';
-      tiles.push(kpi('Actual / Wk', `${r.ratePerWeek > 0 ? '+' : ''}${f1(r.ratePerWeek)}`, `recent trend, ${U}`, cls));
+      tiles.push(kpi('Actual / Wk', `${r.ratePerWeek > 0 ? '+' : ''}${f1(r.ratePerWeek)}`, `${U}/wk recent trend`, cls));
     } else tiles.push(kpi('Actual / Wk', '—', 'needs 2+ entries'));
     tiles.push(kpi('Projected', r.projected ? short(r.projected) : '—', r.projected ? String(r.projected.getFullYear()) : 'at current trend'));
     tiles.push(kpi('Lowest', r.low ? f1(r.low.weight) : '—', r.low ? nice(r.low.date) : ''));
@@ -828,7 +840,7 @@
     if (show.goal && r.goalW != null) ys.push(r.goalW);
     if (show.pace && r.paceAt) { ys.push(r.paceAt(xMin)); ys.push(r.paceAt(xMax)); }
     if (!ys.length && r.startW != null) ys.push(r.startW);
-    if (!ys.length) { svg.innerHTML = ''; return; }
+    if (!ys.length || !all.length) { svg.innerHTML = ''; return; }
     let yMin = Math.min(...ys), yMax = Math.max(...ys);
     const span = Math.max(yMax - yMin, 4);
     yMin -= span * 0.08; yMax += span * 0.08;
@@ -991,6 +1003,8 @@
     show[c.dataset.t] = !show[c.dataset.t]; syncControls(); saveView(); renderChart();
   }));
 
+  $('goLog').addEventListener('click', () => { go('log'); setTimeout(() => $('entryWeight').focus(), 50); });
+
   $('forceDash').addEventListener('click', () => {
     document.body.classList.add('force-dash');
     requestAnimationFrame(renderChart);
@@ -1013,7 +1027,7 @@
     const isLand = landscapeMQ.matches;
     if (isLand !== lastOrient) {
       lastOrient = isLand;
-      if (isLand && !document.activeElement.matches('input, select')) go('dash');
+      if (isLand && state.entries.length && !document.activeElement.matches('input, select')) go('dash');
       else if (!isLand && $('dash').classList.contains('active') && !document.body.classList.contains('force-dash')) go('log');
     }
     if ($('dash').classList.contains('active')) requestAnimationFrame(renderChart);
@@ -1031,7 +1045,8 @@
   syncControls();
   renderAll();
   let startTab = 'log';
-  try { startTab = sessionStorage.getItem(KEY + '.tab') || (landscapeMQ.matches ? 'dash' : 'log'); } catch (e) {}
+  try { startTab = sessionStorage.getItem(KEY + '.tab') || (landscapeMQ.matches && state.entries.length ? 'dash' : 'log'); } catch (e) {}
+  if (!state.entries.length) startTab = 'log';
   go(startTab);
 })();
 </script>
