@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Weight">
+<meta name="theme-color" content="#0f172a">
+<title>Weight Tracker</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel2: #273449;
+    --line: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent2: #60a5fa;
+    --good: #22c55e;
+    --warn: #f59e0b;
+    --bad: #ef4444;
+    --goal: #a78bfa;
+    --pace: #f59e0b;
+    --tab-h: 58px;
+    --sat: env(safe-area-inset-top);
+    --sab: env(safe-area-inset-bottom);
+    --sal: env(safe-area-inset-left);
+    --sar: env(safe-area-inset-right);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--text);
+    -webkit-text-size-adjust: 100%;
+    overflow: hidden;
+  }
+  button { font: inherit; color: inherit; border: none; background: none; cursor: pointer; }
+  input, select { font: inherit; color: var(--text); }
+
+  /* ---------- Screens ---------- */
+  .screen {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    bottom: calc(var(--tab-h) + var(--sab));
+    padding: calc(var(--sat) + 8px) calc(var(--sar) + 14px) 14px calc(var(--sal) + 14px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    display: none;
+  }
+  .screen.active { display: block; }
+
+  h1 { font-size: 1.5rem; font-weight: 800; margin: 6px 0 12px; }
+  h2 { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 10px; }
+
+  .card {
+    background: var(--panel);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+
+  /* ---------- Log screen ---------- */
+  .log-wrap { max-width: 560px; margin: 0 auto; }
+  .entry-row { display: flex; gap: 10px; align-items: stretch; }
+  .weight-input {
+    flex: 1;
+    font-size: 2.4rem; font-weight: 800;
+    background: var(--panel2);
+    border: 2px solid transparent;
+    border-radius: 14px;
+    padding: 10px 14px;
+    width: 100%;
+    min-width: 0;
+    outline: none;
+  }
+  .weight-input:focus { border-color: var(--accent); }
+  .unit-tag { align-self: center; font-size: 1.1rem; color: var(--muted); font-weight: 700; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .field label { font-size: 0.85rem; color: var(--muted); }
+  .field input, .field select {
+    background: var(--panel2);
+    border: 2px solid transparent;
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 1rem;
+    width: 100%;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 48px;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btn {
+    display: block; width: 100%;
+    padding: 15px;
+    border-radius: 14px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+  .btn:active { filter: brightness(.9); }
+  .btn.secondary { background: var(--panel2); }
+  .btn.small { padding: 11px; font-size: 0.95rem; }
+  .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .last-line { margin-top: 12px; font-size: 0.95rem; color: var(--muted); min-height: 1.2em; }
+  .last-line b { color: var(--text); }
+  .down { color: var(--good) !important; }
+  .up { color: var(--bad) !important; }
+
+  .progress-top { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
+  .bar { height: 14px; background: var(--panel2); border-radius: 8px; overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--good)); border-radius: 8px; transition: width .5s; }
+  .progress-big { font-size: 1.6rem; font-weight: 800; margin-top: 10px; }
+  .progress-sub { font-size: 0.9rem; color: var(--muted); margin-top: 2px; }
+
+  details.card summary { list-style: none; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+  details.card summary::-webkit-details-marker { display: none; }
+  details.card summary h2 { margin: 0; }
+  details.card summary::after { content: "▾"; color: var(--muted); transition: transform .2s; }
+  details.card[open] summary::after { transform: rotate(180deg); }
+  details.card[open] summary { margin-bottom: 14px; }
+
+  .history { list-style: none; }
+  .history li {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 0; border-bottom: 1px solid var(--line);
+    font-size: 0.98rem;
+  }
+  .history li:last-child { border-bottom: none; }
+  .history .h-date { color: var(--muted); width: 42%; }
+  .history .h-w { font-weight: 700; }
+  .history .h-d { width: 22%; text-align: right; font-size: 0.85rem; }
+  .history .del { color: var(--muted); padding: 4px 8px; font-size: 1.1rem; }
+  .empty { color: var(--muted); font-size: 0.95rem; text-align: center; padding: 8px 0; }
+  .show-all { margin-top: 8px; }
+
+  /* ---------- Dashboard ---------- */
+  #dash { padding-bottom: 10px; overflow: hidden; }
+  .dash {
+    height: 100%;
+    display: grid;
+    grid-template-columns: minmax(220px, 30%) 1fr;
+    gap: 12px;
+  }
+  .side { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; }
+  .status {
+    border-radius: 14px; padding: 10px 12px;
+    font-weight: 700; font-size: 0.95rem;
+    background: var(--panel);
+    border-left: 5px solid var(--muted);
+  }
+  .status.good { border-left-color: var(--good); }
+  .status.warn { border-left-color: var(--warn); }
+  .status.bad  { border-left-color: var(--bad); }
+  .status small { display: block; font-weight: 500; color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+  .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .kpi { background: var(--panel); border-radius: 12px; padding: 9px 10px; }
+  .kpi .k-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .kpi .k-val { font-size: 1.25rem; font-weight: 800; margin-top: 2px; white-space: nowrap; }
+  .kpi .k-sub { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+
+  .main { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-radius: 16px; padding: 10px 12px 8px; }
+  .chart-tools { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .seg { display: inline-flex; background: var(--panel2); border-radius: 10px; padding: 3px; }
+  .seg button { padding: 6px 10px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; color: var(--muted); }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .toggles { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    padding: 6px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 600;
+    background: var(--panel2); color: var(--muted); display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip .sw { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+  .chip.on { color: var(--text); outline: 1px solid var(--line); }
+  .chip:not(.on) .sw { opacity: .3; }
+  .chart-wrap { position: relative; flex: 1; min-height: 0; }
+  #chart { width: 100%; height: 100%; display: block; touch-action: none; }
+  .tip {
+    position: absolute; pointer-events: none;
+    background: #0b1220; border: 1px solid var(--line);
+    border-radius: 10px; padding: 7px 10px;
+    font-size: 0.82rem; white-space: nowrap;
+    box-shadow: 0 6px 18px rgba(0,0,0,.4);
+    display: none; z-index: 3;
+  }
+  .tip b { font-size: 1rem; }
+  .chart-empty {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); text-align: center; padding: 20px;
+  }
+
+  .rotate {
+    display: none;
+    position: absolute; inset: 0;
+    background: var(--bg);
+    z-index: 5;
+    flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 30px; gap: 14px;
+  }
+  .rotate .icon { font-size: 3.5rem; animation: spin 2.4s ease-in-out infinite; }
+  @keyframes spin { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+  .rotate p { color: var(--muted); max-width: 300px; }
+  .rotate .btn { max-width: 220px; }
+
+  @media (orientation: portrait) {
+    body:not(.force-dash) #dash .rotate { display: flex; }
+    /* If user chooses to view in portrait, stack layout */
+    body.force-dash .dash { grid-template-columns: 1fr; grid-template-rows: auto 1fr; overflow-y: auto; }
+    body.force-dash .side { overflow: visible; }
+    body.force-dash .kpis { grid-template-columns: repeat(2, 1fr); }
+    body.force-dash .main { min-height: 340px; }
+  }
+  @media (orientation: landscape) and (max-height: 500px) {
+    :root { --tab-h: 48px; }
+    .kpi .k-val { font-size: 1.05rem; }
+    .kpi { padding: 7px 9px; }
+    .status { padding: 8px 10px; font-size: 0.88rem; }
+    h1 { font-size: 1.2rem; margin: 2px 0 8px; }
+  }
+
+  /* ---------- Tab bar ---------- */
+  .tabs {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    height: calc(var(--tab-h) + var(--sab));
+    padding: 0 var(--sar) var(--sab) var(--sal);
+    background: rgba(15, 23, 42, .96);
+    border-top: 1px solid var(--line);
+    display: flex;
+    z-index: 10;
+  }
+  .tabs button {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    color: var(--muted); font-size: 0.72rem; font-weight: 600;
+  }
+  .tabs button .ti { font-size: 1.35rem; line-height: 1; }
+  .tabs button.on { color: var(--accent2); }
+  @media (orientation: landscape) and (max-height: 500px) {
+    .tabs button { flex-direction: row; gap: 8px; font-size: 0.85rem; }
+    .tabs button .ti { font-size: 1.1rem; }
+  }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(var(--tab-h) + var(--sab) + 16px);
+    transform: translateX(-50%) translateY(20px);
+    background: var(--good); color: #052e16; font-weight: 700;
+    padding: 10px 18px; border-radius: 999px;
+    opacity: 0; transition: all .25s; pointer-events: none; z-index: 20;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.err { background: var(--bad); color: #fff; }
+
+  .hidden-file { display: none; }
+  .foot-note { font-size: 0.78rem; color: var(--muted); margin-top: 10px; line-height: 1.4; }
+</style>
+</head>
+<body>
+
+<!-- ================= SCREEN 1: LOG ================= -->
+<section class="screen active" id="log">
+  <div class="log-wrap">
+    <h1>Weight Tracker</h1>
+
+    <div class="card">
+      <h2>Enter Weight</h2>
+      <div class="field">
+        <label for="entryDate">Date</label>
+        <input type="date" id="entryDate">
+      </div>
+      <div class="entry-row">
+        <input class="weight-input" id="entryWeight" type="number" inputmode="decimal" step="0.1" placeholder="0.0" aria-label="Weight">
+        <span class="unit-tag" id="unitTag">lb</span>
+      </div>
+      <div style="height:12px"></div>
+      <button class="btn" id="saveEntry">Save Weight</button>
+      <div class="last-line" id="lastLine"></div>
+    </div>
+
+    <div class="card">
+      <h2>Progress to Goal</h2>
+      <div class="progress-top"><span id="pStart">Start —</span><span id="pGoal">Goal —</span></div>
+      <div class="bar"><div id="pBar"></div></div>
+      <div class="progress-big" id="pBig">Set your goal below</div>
+      <div class="progress-sub" id="pSub"></div>
+    </div>
+
+    <details class="card" id="goalCard">
+      <summary><h2>Benchmark &amp; Goal</h2></summary>
+      <div class="grid2">
+        <div class="field">
+          <label for="startWeight">Starting weight</label>
+          <input type="number" inputmode="decimal" step="0.1" id="startWeight" placeholder="e.g. 220">
+        </div>
+        <div class="field">
+          <label for="startDate">Start date</label>
+          <input type="date" id="startDate">
+        </div>
+        <div class="field">
+          <label for="goalWeight">Goal weight</label>
+          <input type="number" inputmode="decimal" step="0.1" id="goalWeight" placeholder="e.g. 190">
+        </div>
+        <div class="field">
+          <label for="goalDate">Goal date</label>
+          <input type="date" id="goalDate">
+        </div>
+      </div>
+      <div class="field">
+        <label for="unit">Units</label>
+        <select id="unit">
+          <option value="lb">Pounds (lb)</option>
+          <option value="kg">Kilograms (kg)</option>
+        </select>
+      </div>
+      <button class="btn" id="saveGoal">Save Goal</button>
+    </details>
+
+    <div class="card">
+      <h2>Recent Entries</h2>
+      <ul class="history" id="history"></ul>
+      <button class="btn secondary small show-all" id="showAll" style="display:none">Show all</button>
+    </div>
+
+    <details class="card">
+      <summary><h2>Backup &amp; Restore</h2></summary>
+      <div class="btn-row">
+        <button class="btn secondary small" id="exportBtn">⬆ Export CSV</button>
+        <button class="btn secondary small" id="importBtn">⬇ Import CSV</button>
+      </div>
+      <input type="file" id="importFile" class="hidden-file" accept=".csv,text/csv,text/plain">
+      <p class="foot-note">
+        Your data is stored only on this iPhone. Export a backup now and then and save it to Files or iCloud Drive.
+        Always open the app from the same Home Screen icon — Safari tabs and the Home Screen app keep separate data.
+      </p>
+      <div style="height:10px"></div>
+      <button class="btn secondary small" id="clearBtn" style="color:var(--bad)">Erase all data</button>
+    </details>
+  </div>
+</section>
+
+<!-- ================= SCREEN 2: DASHBOARD ================= -->
+<section class="screen" id="dash">
+  <div class="rotate">
+    <div class="icon">📱</div>
+    <h1>Turn your phone sideways</h1>
+    <p>The dashboard is designed for landscape. Make sure Portrait Orientation Lock is off in Control Center.</p>
+    <button class="btn secondary small" id="forceDash">Show anyway</button>
+  </div>
+
+  <div class="dash">
+    <aside class="side">
+      <div class="status" id="status">—</div>
+      <div class="kpis" id="kpis"></div>
+    </aside>
+
+    <div class="main">
+      <div class="chart-tools">
+        <div class="seg" id="range">
+          <button data-r="1m">1M</button>
+          <button data-r="3m">3M</button>
+          <button data-r="6m">6M</button>
+          <button data-r="1y">1Y</button>
+          <button data-r="all" class="on">All</button>
+        </div>
+        <div class="toggles">
+          <button class="chip on" data-t="trend"><span class="sw" style="background:#22c55e"></span>7-day avg</button>
+          <button class="chip on" data-t="pace"><span class="sw" style="background:var(--pace)"></span>Target pace</button>
+          <button class="chip on" data-t="goal"><span class="sw" style="background:var(--goal)"></span>Goal</button>
+        </div>
+      </div>
+      <div class="chart-wrap" id="chartWrap">
+        <svg id="chart"></svg>
+        <div class="tip" id="tip"></div>
+        <div class="chart-empty" id="chartEmpty" style="display:none">Add a few weights on the Log screen to see your chart.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TAB BAR ================= -->
+<nav class="tabs">
+  <button class="on" data-s="log"><span class="ti">✏️</span>Log</button>
+  <button data-s="dash"><span class="ti">📊</span>Dashboard</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ---------------- Storage ---------------- */
+  const KEY = 'weightTracker.v1';
+  const DAY = 864e5;
+  let memoryFallback = null;
+
+  const defaults = () => ({
+    settings: { startWeight: null, startDate: null, goalWeight: null, goalDate: null, unit: 'lb' },
+    entries: [] // { date: 'YYYY-MM-DD', weight: Number }
+  });
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return defaults();
+      const d = JSON.parse(raw);
+      return { settings: { ...defaults().settings, ...(d.settings || {}) }, entries: Array.isArray(d.entries) ? d.entries : [] };
+    } catch (e) {
+      return memoryFallback || defaults();
+    }
+  }
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); }
+    catch (e) { memoryFallback = state; toast('Could not save to phone storage', true); }
+  }
+
+  let state = load();
+
+  /* ---------------- Helpers ---------------- */
+  const $ = id => document.getElementById(id);
+  const pad2 = n => String(n).padStart(2, '0');
+  const iso = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  const today = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+  const num = v => { const n = parseFloat(v); return isFinite(n) ? n : null; };
+  const f1 = n => (Math.round(n * 10) / 10).toFixed(1);
+  const u = () => state.settings.unit || 'lb';
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const nice = s => { const d = typeof s === 'string' ? parse(s) : s; return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; };
+  const short = d => `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+  const weekday = s => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][parse(s).getDay()];
+
+  const sorted = () => [...state.entries].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+
+  function toast(msg, err) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.toggle('err', !!err);
+    t.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  /* ---------------- Calculations ---------------- */
+  function calc() {
+    const s = state.settings;
+    const list = sorted();
+    const first = list[0];
+    const last = list[list.length - 1];
+    const startW = s.startWeight ?? (first ? first.weight : null);
+    const startD = s.startDate ? parse(s.startDate) : (first ? parse(first.date) : today());
+    const goalW = s.goalWeight;
+    const goalD = s.goalDate ? parse(s.goalDate) : null;
+    const current = last ? last.weight : startW;
+    const t0 = today();
+
+    const r = { list, startW, startD, goalW, goalD, current, last };
+    if (startW == null || current == null) return r;
+
+    r.change = current - startW;                            // negative = lost
+    if (goalW != null && goalW !== startW) {
+      const total = startW - goalW;                          // positive for loss goal
+      r.losing = total > 0;
+      r.progress = (startW - current) / total;               // 0..1
+      r.remaining = r.losing ? current - goalW : goalW - current; // >0 means still to go
+    }
+
+    if (goalD) {
+      r.daysLeft = Math.round((goalD - t0) / DAY);
+      if (r.remaining != null && r.remaining > 0 && r.daysLeft > 0) {
+        r.neededPerWeek = r.remaining / (r.daysLeft / 7);
+      }
+      // Target pace (straight line from start to goal)
+      if (goalW != null && goalD > startD) {
+        r.paceAt = t => startW + (goalW - startW) * Math.min(1, Math.max(0, (t - startD) / (goalD - startD)));
+        if (last) {
+          const lastT = parse(last.date);
+          r.paceDiff = current - r.paceAt(lastT); // >0 above target line
+        }
+      }
+    }
+
+    // Actual rate: linear regression over last 28 days (or all entries if fewer than 3 in window)
+    if (list.length >= 2) {
+      const lastT = parse(last.date).getTime();
+      let win = list.filter(e => lastT - parse(e.date).getTime() <= 28 * DAY);
+      if (win.length < 3) win = list;
+      if (win.length >= 2) {
+        const xs = win.map(e => parse(e.date).getTime() / (7 * DAY));
+        const ys = win.map(e => e.weight);
+        const mx = xs.reduce((a, b) => a + b, 0) / xs.length;
+        const my = ys.reduce((a, b) => a + b, 0) / ys.length;
+        let nume = 0, den = 0;
+        xs.forEach((x, i) => { nume += (x - mx) * (ys[i] - my); den += (x - mx) ** 2; });
+        if (den > 0) r.ratePerWeek = nume / den; // + gain, - loss per week
+      }
+      // Projected goal date
+      if (r.ratePerWeek != null && r.remaining != null && r.remaining > 0) {
+        const towards = r.losing ? -r.ratePerWeek : r.ratePerWeek;
+        if (towards > 0.01) {
+          r.projected = new Date(parse(last.date).getTime() + (r.remaining / towards) * 7 * DAY);
+        }
+      }
+    }
+
+    // Lowest / highest
+    if (list.length) {
+      r.low = list.reduce((a, b) => b.weight < a.weight ? b : a);
+      r.high = list.reduce((a, b) => b.weight > a.weight ? b : a);
+    }
+    return r;
+  }
+
+  /* ---------------- LOG SCREEN ---------------- */
+  let showAllHistory = false;
+
+  function renderLog() {
+    const s = state.settings;
+    $('unitTag').textContent = u();
+    const r = calc();
+
+    // Last entry line
+    const list = r.list;
+    if (list.length) {
+      const last = list[list.length - 1];
+      const prev = list[list.length - 2];
+      let txt = `Last: <b>${f1(last.weight)} ${u()}</b> on ${nice(last.date)}`;
+      if (prev) {
+        const d = last.weight - prev.weight;
+        const cls = d < 0 ? 'down' : d > 0 ? 'up' : '';
+        txt += ` &nbsp;<span class="${cls}">${d > 0 ? '+' : ''}${f1(d)}</span>`;
+      }
+      $('lastLine').innerHTML = txt;
+    } else {
+      $('lastLine').textContent = 'No entries yet.';
+    }
+
+    // Progress card
+    if (r.startW != null && r.goalW != null) {
+      const pct = Math.max(0, Math.min(1, r.progress ?? 0));
+      $('pStart').textContent = `Start ${f1(r.startW)}`;
+      $('pGoal').textContent = `Goal ${f1(r.goalW)}`;
+      $('pBar').style.width = (pct * 100).toFixed(1) + '%';
+      if (r.remaining <= 0) {
+        $('pBig').textContent = '🎉 Goal reached!';
+      } else {
+        $('pBig').textContent = `${Math.round(pct * 100)}% complete`;
+      }
+      const moved = Math.abs(r.change);
+      const word = r.losing ? (r.change <= 0 ? 'lost' : 'gained') : (r.change >= 0 ? 'gained' : 'lost');
+      let sub = `${f1(moved)} ${u()} ${word}`;
+      if (r.remaining > 0) sub += ` · ${f1(r.remaining)} ${u()} to go`;
+      if (r.daysLeft != null) sub += r.daysLeft >= 0 ? ` · ${r.daysLeft} days left` : ` · goal date passed`;
+      $('pSub').textContent = sub;
+    } else {
+      $('pStart').textContent = 'Start —';
+      $('pGoal').textContent = 'Goal —';
+      $('pBar').style.width = '0';
+      $('pBig').textContent = 'Set your goal below';
+      $('pSub').textContent = '';
+      $('goalCard').open = true;
+    }
+
+    // Goal form
+    $('startWeight').value = s.startWeight ?? '';
+    $('startDate').value = s.startDate ?? '';
+    $('goalWeight').value = s.goalWeight ?? '';
+    $('goalDate').value = s.goalDate ?? '';
+    $('unit').value = s.unit || 'lb';
+
+    // History
+    const rev = [...list].reverse();
+    const shown = showAllHistory ? rev : rev.slice(0, 10);
+    const ul = $('history');
+    if (!rev.length) {
+      ul.innerHTML = '<li class="empty">Your entries will show here.</li>';
+    } else {
+      ul.innerHTML = shown.map(e => {
+        const i = list.findIndex(x => x.date === e.date);
+        const prev = list[i - 1];
+        let dHtml = '';
+        if (prev) {
+          const d = e.weight - prev.weight;
+          dHtml = `<span class="${d < 0 ? 'down' : d > 0 ? 'up' : ''}">${d > 0 ? '+' : ''}${f1(d)}</span>`;
+        }
+        return `<li>
+          <span class="h-date">${weekday(e.date)}, ${nice(e.date)}</span>
+          <span class="h-w">${f1(e.weight)}</span>
+          <span class="h-d">${dHtml}</span>
+          <button class="del" data-date="${e.date}" aria-label="Delete">✕</button>
+        </li>`;
+      }).join('');
+    }
+    const btn = $('showAll');
+    btn.style.display = rev.length > 10 ? 'block' : 'none';
+    btn.textContent = showAllHistory ? 'Show less' : `Show all (${rev.length})`;
+  }
+
+  $('entryDate').value = iso(today());
+  $('entryDate').max = iso(today());
+
+  $('saveEntry').addEventListener('click', () => {
+    const w = num($('entryWeight').value);
+    const date = $('entryDate').value || iso(today());
+    if (w == null || w < 20 || w > 1500) { toast('Enter a valid weight', true); return; }
+    const existing = state.entries.find(e => e.date === date);
+    if (existing) existing.weight = w;
+    else state.entries.push({ date, weight: w });
+    // First ever entry becomes the benchmark if none set
+    if (state.settings.startWeight == null) {
+      state.settings.startWeight = w;
+      state.settings.startDate = date;
+    }
+    persist();
+    $('entryWeight').value = '';
+    $('entryWeight').blur();
+    $('entryDate').value = iso(today());
+    toast(existing ? 'Updated ✓' : 'Saved ✓');
+    renderAll();
+  });
+  $('entryWeight').addEventListener('keydown', e => { if (e.key === 'Enter') $('saveEntry').click(); });
+
+  $('saveGoal').addEventListener('click', () => {
+    const sw = num($('startWeight').value);
+    const gw = num($('goalWeight').value);
+    const sd = $('startDate').value || null;
+    const gd = $('goalDate').value || null;
+    if (sw != null && (sw < 20 || sw > 1500)) { toast('Check starting weight', true); return; }
+    if (gw != null && (gw < 20 || gw > 1500)) { toast('Check goal weight', true); return; }
+    if (sd && gd && gd <= sd) { toast('Goal date must be after start date', true); return; }
+    state.settings.startWeight = sw;
+    state.settings.goalWeight = gw;
+    state.settings.startDate = sd || (sw != null ? iso(today()) : null);
+    state.settings.goalDate = gd;
+    state.settings.unit = $('unit').value;
+    persist();
+    toast('Goal saved ✓');
+    $('goalCard').open = false;
+    renderAll();
+  });
+
+  $('history').addEventListener('click', e => {
+    const b = e.target.closest('.del');
+    if (!b) return;
+    const date = b.dataset.date;
+    if (!confirm(`Delete entry for ${nice(date)}?`)) return;
+    state.entries = state.entries.filter(x => x.date !== date);
+    persist();
+    renderAll();
+  });
+  $('showAll').addEventListener('click', () => { showAllHistory = !showAllHistory; renderLog(); });
+
+  /* ---------------- Backup ---------------- */
+  function toCSV() {
+    const s = state.settings;
+    const rows = ['type,date,weight'];
+    rows.push(`unit,,${s.unit || 'lb'}`);
+    if (s.startWeight != null) rows.push(`start,${s.startDate || ''},${s.startWeight}`);
+    if (s.goalWeight != null || s.goalDate) rows.push(`goal,${s.goalDate || ''},${s.goalWeight ?? ''}`);
+    sorted().forEach(e => rows.push(`entry,${e.date},${e.weight}`));
+    return rows.join('\n');
+  }
+
+  $('exportBtn').addEventListener('click', async () => {
+    const name = `weight-backup-${iso(today())}.csv`;
+    const csv = toCSV();
+    try {
+      const file = new File([csv], name, { type: 'text/csv' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Weight backup' });
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  });
+
+  $('importBtn').addEventListener('click', () => $('importFile').click());
+  $('importFile').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const next = defaults();
+      let count = 0;
+      text.split(/\r?\n/).forEach(line => {
+        const [type, date, val] = line.split(',').map(x => (x || '').trim());
+        const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+        if (type === 'unit' && (val === 'lb' || val === 'kg')) next.settings.unit = val;
+        else if (type === 'start') { next.settings.startWeight = num(val); next.settings.startDate = validDate; }
+        else if (type === 'goal') { next.settings.goalWeight = num(val); next.settings.goalDate = validDate; }
+        else if (type === 'entry' && validDate && num(val) != null) {
+          const ex = next.entries.find(x => x.date === validDate);
+          if (ex) ex.weight = num(val); else next.entries.push({ date: validDate, weight: num(val) });
+          count++;
+        }
+      });
+      if (!count && next.settings.startWeight == null) { toast('No data found in file', true); return; }
+      if (!confirm(`Replace current data with ${count} entries from this backup?`)) return;
+      state = next;
+      persist();
+      toast(`Imported ${count} entries ✓`);
+      renderAll();
+    } catch (err) {
+      toast('Could not read file', true);
+    }
+  });
+
+  $('clearBtn').addEventListener('click', () => {
+    if (!confirm('Erase ALL entries and goal settings from this phone? Export a backup first if you want to keep them.')) return;
+    state = defaults();
+    persist();
+    renderAll();
+    toast('All data erased');
+  });
+
+  /* ---------------- DASHBOARD ---------------- */
+  let range = 'all';
+  const show = { trend: true, pace: true, goal: true };
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY + '.view') || 'null');
+    if (saved) { range = saved.range || 'all'; Object.assign(show, saved.show || {}); }
+  } catch (e) {}
+  function saveView() { try { localStorage.setItem(KEY + '.view', JSON.stringify({ range, show })); } catch (e) {} }
+
+  function kpi(label, val, sub, cls) {
+    return `<div class="kpi"><div class="k-label">${label}</div><div class="k-val ${cls || ''}">${val}</div>${sub ? `<div class="k-sub">${sub}</div>` : ''}</div>`;
+  }
+
+  function renderKPIs() {
+    const r = calc();
+    const U = u();
+    const st = $('status');
+
+    // Status banner
+    if (!r.list.length) {
+      st.className = 'status';
+      st.innerHTML = 'No entries yet<small>Log your weight to get started</small>';
+    } else if (r.goalW == null) {
+      st.className = 'status';
+      st.innerHTML = 'No goal set<small>Add a goal weight and date on the Log screen</small>';
+    } else if (r.remaining <= 0) {
+      st.className = 'status good';
+      st.innerHTML = '🎉 Goal reached!<small>Nice work.</small>';
+    } else if (r.paceDiff != null) {
+      const ahead = r.losing ? r.paceDiff <= 0 : r.paceDiff >= 0;
+      const amt = Math.abs(r.paceDiff);
+      if (ahead) { st.className = 'status good'; st.innerHTML = `On track ✓<small>${f1(amt)} ${U} ahead of target pace</small>`; }
+      else if (amt < 2) { st.className = 'status warn'; st.innerHTML = `Slightly behind<small>${f1(amt)} ${U} behind target pace</small>`; }
+      else { st.className = 'status bad'; st.innerHTML = `Behind pace<small>${f1(amt)} ${U} behind target pace</small>`; }
+    } else {
+      st.className = 'status';
+      st.innerHTML = 'Goal set<small>Add a goal date to track pace</small>';
+    }
+
+    const tiles = [];
+    tiles.push(kpi('Current', r.current != null ? `${f1(r.current)}` : '—', r.last ? nice(r.last.date) : U));
+    if (r.change != null) {
+      const cls = r.change < 0 ? 'down' : r.change > 0 ? 'up' : '';
+      tiles.push(kpi(r.change <= 0 ? 'Total Lost' : 'Total Gained', `${f1(Math.abs(r.change))}`, `from ${f1(r.startW)} ${U}`, cls));
+    } else tiles.push(kpi('Total Change', '—'));
+    tiles.push(kpi('To Go', r.remaining != null ? (r.remaining > 0 ? f1(r.remaining) : '0') : '—', r.goalW != null ? `goal ${f1(r.goalW)} ${U}` : 'no goal set'));
+    tiles.push(kpi('Complete', r.progress != null ? `${Math.max(0, Math.round(r.progress * 100))}%` : '—', ''));
+    tiles.push(kpi('Days Left', r.daysLeft != null ? (r.daysLeft >= 0 ? r.daysLeft : 'Past') : '—', r.goalD ? nice(r.goalD) : 'no goal date'));
+    tiles.push(kpi('Needed / Wk', r.neededPerWeek != null ? f1(r.neededPerWeek) : '—', `${U} per week to hit goal`));
+    if (r.ratePerWeek != null) {
+      const cls = r.ratePerWeek < 0 ? 'down' : r.ratePerWeek > 0 ? 'up' : '';
+      tiles.push(kpi('Actual / Wk', `${r.ratePerWeek > 0 ? '+' : ''}${f1(r.ratePerWeek)}`, `recent trend, ${U}`, cls));
+    } else tiles.push(kpi('Actual / Wk', '—', 'needs 2+ entries'));
+    tiles.push(kpi('Projected', r.projected ? short(r.projected) : '—', r.projected ? String(r.projected.getFullYear()) : 'at current trend'));
+    tiles.push(kpi('Lowest', r.low ? f1(r.low.weight) : '—', r.low ? nice(r.low.date) : ''));
+    tiles.push(kpi('Entries', r.list.length, r.list.length ? `since ${short(parse(r.list[0].date))}` : ''));
+    $('kpis').innerHTML = tiles.join('');
+  }
+
+  // Chart state for interaction
+  let chartPts = [], sx = null, sy = null, plot = null;
+
+  function renderChart() {
+    const svg = $('chart');
+    const wrap = $('chartWrap');
+    const W = wrap.clientWidth, H = wrap.clientHeight;
+    if (!W || !H) return;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    $('tip').style.display = 'none';
+
+    const r = calc();
+    const all = r.list.map(e => ({ t: parse(e.date).getTime(), w: e.weight, date: e.date }));
+
+    // 7-day moving average (calendar-based)
+    all.forEach((p, i) => {
+      let sum = 0, n = 0;
+      for (let j = i; j >= 0 && p.t - all[j].t < 7 * DAY; j--) { sum += all[j].w; n++; }
+      p.avg = sum / n;
+    });
+
+    const t0 = today().getTime();
+    let xMin, xMax;
+    if (range === 'all') {
+      xMin = Math.min(all.length ? all[0].t : t0, r.startD ? r.startD.getTime() : t0);
+      xMax = Math.max(all.length ? all[all.length - 1].t : t0, t0);
+      if (r.goalD && (show.pace || show.goal)) xMax = Math.max(xMax, r.goalD.getTime());
+    } else {
+      const days = { '1m': 30, '3m': 91, '6m': 182, '1y': 365 }[range];
+      xMax = Math.max(t0, all.length ? all[all.length - 1].t : t0);
+      xMin = xMax - days * DAY;
+    }
+    if (xMax - xMin < 7 * DAY) { xMin = xMax - 7 * DAY; }
+
+    const pts = all.filter(p => p.t >= xMin && p.t <= xMax);
+    chartPts = pts;
+    $('chartEmpty').style.display = all.length ? 'none' : 'flex';
+
+    // Y domain
+    const ys = pts.map(p => p.w);
+    if (show.trend) pts.forEach(p => ys.push(p.avg));
+    if (show.goal && r.goalW != null) ys.push(r.goalW);
+    if (show.pace && r.paceAt) { ys.push(r.paceAt(xMin)); ys.push(r.paceAt(xMax)); }
+    if (!ys.length && r.startW != null) ys.push(r.startW);
+    if (!ys.length) { svg.innerHTML = ''; return; }
+    let yMin = Math.min(...ys), yMax = Math.max(...ys);
+    const span = Math.max(yMax - yMin, 4);
+    yMin -= span * 0.08; yMax += span * 0.08;
+
+    const P = { l: 44, r: 14, t: 10, b: 24 };
+    plot = { x0: P.l, x1: W - P.r, y0: P.t, y1: H - P.b };
+    sx = t => plot.x0 + (t - xMin) / (xMax - xMin) * (plot.x1 - plot.x0);
+    sy = w => plot.y1 - (w - yMin) / (yMax - yMin) * (plot.y1 - plot.y0);
+
+    let g = '';
+    g += `<defs>
+      <clipPath id="clip"><rect x="${plot.x0}" y="${plot.y0}" width="${plot.x1 - plot.x0}" height="${plot.y1 - plot.y0}"/></clipPath>
+      <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#3b82f6" stop-opacity=".35"/>
+        <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+      </linearGradient>
+    </defs>`;
+
+    // Y grid
+    const step = niceStep((yMax - yMin) / 5);
+    for (let v = Math.ceil(yMin / step) * step; v <= yMax; v += step) {
+      const y = sy(v);
+      g += `<line x1="${plot.x0}" x2="${plot.x1}" y1="${y}" y2="${y}" stroke="#334155" stroke-width="1"/>`;
+      g += `<text x="${plot.x0 - 6}" y="${y + 4}" fill="#94a3b8" font-size="11" text-anchor="end">${Number.isInteger(step) ? Math.round(v) : v.toFixed(1)}</text>`;
+    }
+
+    // X labels
+    const spanDays = (xMax - xMin) / DAY;
+    const maxLabels = Math.max(2, Math.floor((plot.x1 - plot.x0) / 70));
+    const xStepDays = [1, 2, 7, 14, 30, 61, 91, 182, 365].find(s => spanDays / s <= maxLabels) || 365;
+    const startLbl = new Date(xMin); startLbl.setHours(0, 0, 0, 0);
+    if (xStepDays >= 30) startLbl.setDate(1);
+    for (let d = new Date(startLbl); d.getTime() <= xMax; ) {
+      const t = d.getTime();
+      if (t >= xMin) {
+        const x = sx(t);
+        g += `<line x1="${x}" x2="${x}" y1="${plot.y0}" y2="${plot.y1}" stroke="#1f2a3d" stroke-width="1"/>`;
+        const lbl = xStepDays >= 365 ? d.getFullYear() : xStepDays >= 30 ? `${MONTHS[d.getMonth()]}${d.getMonth() === 0 ? " '" + String(d.getFullYear()).slice(2) : ''}` : short(d);
+        g += `<text x="${x}" y="${H - 6}" fill="#94a3b8" font-size="11" text-anchor="middle">${lbl}</text>`;
+      }
+      if (xStepDays >= 30) d.setMonth(d.getMonth() + Math.round(xStepDays / 30));
+      else d.setDate(d.getDate() + xStepDays);
+    }
+
+    // Today marker
+    if (t0 >= xMin && t0 <= xMax) {
+      const x = sx(t0);
+      g += `<line x1="${x}" x2="${x}" y1="${plot.y0}" y2="${plot.y1}" stroke="#475569" stroke-dasharray="2 4"/>`;
+      g += `<text x="${x + 4}" y="${plot.y0 + 11}" fill="#64748b" font-size="10">Today</text>`;
+    }
+
+    g += `<g clip-path="url(#clip)">`;
+    // Goal line
+    if (show.goal && r.goalW != null) {
+      const y = sy(r.goalW);
+      g += `<line x1="${plot.x0}" x2="${plot.x1}" y1="${y}" y2="${y}" stroke="#a78bfa" stroke-width="2" stroke-dasharray="6 5"/>`;
+      g += `<text x="${plot.x1 - 4}" y="${y - 6}" fill="#a78bfa" font-size="11" text-anchor="end" font-weight="700">Goal ${f1(r.goalW)}</text>`;
+    }
+    // Target pace line
+    if (show.pace && r.paceAt) {
+      const a = Math.max(xMin, r.startD.getTime()), b = Math.min(xMax, r.goalD.getTime());
+      if (b > a) {
+        g += `<line x1="${sx(a)}" y1="${sy(r.paceAt(a))}" x2="${sx(b)}" y2="${sy(r.paceAt(b))}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="3 4" opacity=".9"/>`;
+      }
+    }
+    // Area + weight line
+    if (pts.length) {
+      const line = pts.map((p, i) => `${i ? 'L' : 'M'}${sx(p.t).toFixed(1)},${sy(p.w).toFixed(1)}`).join('');
+      if (pts.length > 1) {
+        g += `<path d="${line}L${sx(pts[pts.length - 1].t)},${plot.y1}L${sx(pts[0].t)},${plot.y1}Z" fill="url(#fill)"/>`;
+      }
+      g += `<path d="${line}" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+      if (show.trend && pts.length > 2) {
+        const avg = pts.map((p, i) => `${i ? 'L' : 'M'}${sx(p.t).toFixed(1)},${sy(p.avg).toFixed(1)}`).join('');
+        g += `<path d="${avg}" fill="none" stroke="#22c55e" stroke-width="2" stroke-linejoin="round" opacity=".9"/>`;
+      }
+      const dotR = pts.length > 60 ? 0 : pts.length > 30 ? 2 : 3.5;
+      if (dotR) pts.forEach(p => { g += `<circle cx="${sx(p.t)}" cy="${sy(p.w)}" r="${dotR}" fill="#0f172a" stroke="#60a5fa" stroke-width="2"/>`; });
+    }
+    g += `</g>`;
+
+    // Hover elements
+    g += `<line id="hLine" y1="${plot.y0}" y2="${plot.y1}" stroke="#e2e8f0" stroke-width="1" opacity="0"/>`;
+    g += `<circle id="hDot" r="6" fill="#3b82f6" stroke="#fff" stroke-width="2" opacity="0"/>`;
+    svg.innerHTML = g;
+  }
+
+  function niceStep(raw) {
+    const p = Math.pow(10, Math.floor(Math.log10(raw)));
+    const n = raw / p;
+    return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * p;
+  }
+
+  function hover(evt) {
+    if (!chartPts.length || !sx) return;
+    const svg = $('chart');
+    const rect = svg.getBoundingClientRect();
+    const x = evt.clientX - rect.left;
+    let best = null, bd = Infinity;
+    chartPts.forEach(p => { const d = Math.abs(sx(p.t) - x); if (d < bd) { bd = d; best = p; } });
+    if (!best) return;
+    const px = sx(best.t), py = sy(best.w);
+    const hl = $('hLine'), hd = $('hDot');
+    hl.setAttribute('x1', px); hl.setAttribute('x2', px); hl.setAttribute('opacity', '.35');
+    hd.setAttribute('cx', px); hd.setAttribute('cy', py); hd.setAttribute('opacity', '1');
+
+    const r = calc();
+    const U = u();
+    const i = r.list.findIndex(e => e.date === best.date);
+    const prev = r.list[i - 1];
+    let html = `<div>${weekday(best.date)}, ${nice(best.date)}</div><b>${f1(best.w)} ${U}</b>`;
+    if (prev) {
+      const d = best.w - prev.weight;
+      html += ` <span class="${d < 0 ? 'down' : d > 0 ? 'up' : ''}">${d > 0 ? '+' : ''}${f1(d)}</span>`;
+    }
+    if (show.trend) html += `<div style="color:#86efac">7-day avg ${f1(best.avg)}</div>`;
+    if (r.startW != null) {
+      const c = best.w - r.startW;
+      html += `<div style="color:#94a3b8">${c <= 0 ? 'Lost' : 'Gained'} ${f1(Math.abs(c))} since start</div>`;
+    }
+    if (r.paceAt) {
+      const diff = best.w - r.paceAt(best.t);
+      const ahead = r.losing ? diff <= 0 : diff >= 0;
+      html += `<div style="color:${ahead ? '#86efac' : '#fca5a5'}">${f1(Math.abs(diff))} ${ahead ? 'ahead of' : 'behind'} pace</div>`;
+    }
+    const tip = $('tip');
+    tip.innerHTML = html;
+    tip.style.display = 'block';
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    const wrapW = $('chartWrap').clientWidth;
+    let left = px + 12;
+    if (left + tw > wrapW - 4) left = px - tw - 12;
+    let top = py - th - 10;
+    if (top < 2) top = py + 12;
+    tip.style.left = Math.max(2, left) + 'px';
+    tip.style.top = top + 'px';
+  }
+  function unhover() {
+    $('tip').style.display = 'none';
+    const hl = $('hLine'), hd = $('hDot');
+    if (hl) hl.setAttribute('opacity', '0');
+    if (hd) hd.setAttribute('opacity', '0');
+  }
+  const svgEl = $('chart');
+  svgEl.addEventListener('pointerdown', hover);
+  svgEl.addEventListener('pointermove', hover);
+  svgEl.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') unhover(); });
+  document.addEventListener('pointerdown', e => { if (!e.target.closest('#chart')) unhover(); });
+
+  // Range + toggles
+  function syncControls() {
+    document.querySelectorAll('#range button').forEach(b => b.classList.toggle('on', b.dataset.r === range));
+    document.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', !!show[c.dataset.t]));
+  }
+  $('range').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    range = b.dataset.r; syncControls(); saveView(); renderChart();
+  });
+  document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
+    show[c.dataset.t] = !show[c.dataset.t]; syncControls(); saveView(); renderChart();
+  }));
+
+  $('forceDash').addEventListener('click', () => {
+    document.body.classList.add('force-dash');
+    requestAnimationFrame(renderChart);
+  });
+
+  /* ---------------- Tabs ---------------- */
+  function go(screen) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === screen));
+    document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.s === screen));
+    if (screen === 'dash') { renderKPIs(); requestAnimationFrame(renderChart); }
+    else document.body.classList.remove('force-dash');
+    try { sessionStorage.setItem(KEY + '.tab', screen); } catch (e) {}
+  }
+  document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => go(b.dataset.s)));
+
+  // Auto-switch to the dashboard when the phone is turned sideways (and back)
+  const landscapeMQ = window.matchMedia('(orientation: landscape)');
+  let lastOrient = landscapeMQ.matches;
+  function onOrient() {
+    const isLand = landscapeMQ.matches;
+    if (isLand !== lastOrient) {
+      lastOrient = isLand;
+      if (isLand && !document.activeElement.matches('input, select')) go('dash');
+      else if (!isLand && $('dash').classList.contains('active') && !document.body.classList.contains('force-dash')) go('log');
+    }
+    if ($('dash').classList.contains('active')) requestAnimationFrame(renderChart);
+  }
+  if (landscapeMQ.addEventListener) landscapeMQ.addEventListener('change', onOrient);
+  else landscapeMQ.addListener(onOrient);
+  let rT;
+  window.addEventListener('resize', () => { clearTimeout(rT); rT = setTimeout(() => { if ($('dash').classList.contains('active')) renderChart(); }, 120); });
+
+  function renderAll() {
+    renderLog();
+    if ($('dash').classList.contains('active')) { renderKPIs(); renderChart(); }
+  }
+
+  syncControls();
+  renderAll();
+  let startTab = 'log';
+  try { startTab = sessionStorage.getItem(KEY + '.tab') || (landscapeMQ.matches ? 'dash' : 'log'); } catch (e) {}
+  go(startTab);
+})();
+</script>
+</body>
+</html>
